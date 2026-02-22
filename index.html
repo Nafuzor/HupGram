@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HupGram — Premium Telegram Userbot</title>
+    <meta name="description" content="Модульный Telegram Userbot с AI функциями. Управляй своим аккаунтом на новом уровне.">
+    
+    <!-- Шрифты и Иконки -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- Библиотеки для AI Чата: Подсветка кода и Парсер Markdown -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/atom-one-dark.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/highlight.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+    <style>
+        /* --- ПЕРЕМЕННЫЕ И ОПТИМИЗАЦИЯ --- */
+        :root {
+            --bg-dark: #050505;
+            --text-main: #ffffff;
+            --text-muted: #999;
+            --glass-bg: rgba(20, 20, 20, 0.65);
+            --glass-border: rgba(255, 255, 255, 0.08);
+            --glass-blur: 12px; /* Оптимизировано для FPS */
+            --nav-glass: rgba(10, 10, 10, 0.85);
+            --accent-green: #4ade80;
+            --accent-purple: #c084fc;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        html { scroll-behavior: smooth; }
+        
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            font-family: 'Inter', sans-serif;
+            line-height: 1.6;
+            overflow-x: hidden;
+            /* Включаем сглаживание шрифтов */
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: var(--bg-dark); }
+        ::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
+
+        /* --- ФОН: CYBER GRID & GLOW (GPU ACCELERATED) --- */
+        .cyber-grid {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100vh;
+            z-index: -3; perspective: 1000px; overflow: hidden; pointer-events: none;
+            will-change: transform;
+        }
+        .grid-lines {
+            position: absolute; top: 0; left: -50%; width: 200%; height: 200%;
+            background-image: 
+                linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+            background-size: 60px 60px;
+            transform: rotateX(60deg) translateZ(0); /* translateZ(0) форсирует GPU */
+            transform-origin: center top;
+            animation: grid-move 20s linear infinite;
+            -webkit-mask-image: radial-gradient(circle, rgba(0,0,0,1) 0%, rgba(0,0,0,0) 70%);
+        }
+        @keyframes grid-move { 0% { background-position: 0 0; } 100% { background-position: 0 60px; } }
+
+        .glow-spot {
+            position: fixed; width: 700px; height: 700px; border-radius: 50%;
+            z-index: -2; filter: blur(100px); opacity: 0.2;
+            pointer-events: none; transform: translateZ(0);
+        }
+        .glow-1 { top: -20%; left: -10%; background: radial-gradient(circle, #333, transparent 70%); }
+        .glow-2 { bottom: -20%; right: -10%; background: radial-gradient(circle, #444, transparent 70%); }
+
+        /* --- ГЛОБАЛЬНЫЕ ЭФФЕКТЫ --- */
+        #preloader {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: #000; z-index: 10000;
+            display: flex; justify-content: center; align-items: center; flex-direction: column;
+            transition: opacity 0.6s ease, visibility 0.6s;
+        }
+        .preloader-hide { opacity: 0; visibility: hidden; }
+        .loader-text { font-family: 'Inter', sans-serif; font-weight: 800; font-size: 3rem; letter-spacing: -1px; color: #fff; animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 0.5; } 50% { opacity: 1; text-shadow: 0 0 20px rgba(255,255,255,0.3); } }
+
+        #progress-bar {
+            position: fixed; top: 0; left: 0; width: 0%; height: 3px;
+            background: linear-gradient(90deg, #555, #fff);
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.3); z-index: 9999;
+            will-change: width;
+        }
+
+        #toast-notification {
+            position: fixed; bottom: 110px; right: 20px;
+            background: rgba(15, 15, 15, 0.95); border: 1px solid rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px); padding: 15px 20px; border-radius: 16px;
+            display: flex; align-items: center; gap: 15px;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+            transform: translateX(150%); transition: transform 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
+            z-index: 8000; max-width: 320px; will-change: transform;
+        }
+        #toast-notification.show { transform: translateX(0); }
+
+        /* --- СТРУКТУРА ЛЕНДИНГА --- */
+        #landing-page { transition: opacity 0.4s ease; padding-bottom: 120px; }
+        .container { max-width: 1000px; margin: 0 auto; padding: 0 20px; }
+        section { padding: 90px 0; }
+        
+        .tech-label { display: block; font-family: 'Roboto Mono', monospace; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 2px; color: #555; margin-bottom: 10px; text-align: center; }
+        h1.shine-text { font-size: 4.5rem; font-weight: 800; line-height: 1.1; margin-bottom: 25px; letter-spacing: -2px; background: linear-gradient(110deg, #888 20%, #fff 40%, #888 60%); background-size: 200% auto; color: transparent; background-clip: text; -webkit-background-clip: text; animation: shine 8s linear infinite; }
+        @keyframes shine { to { background-position: -200% center; } }
+        h2 { font-size: 2.5rem; text-align: center; font-weight: 700; margin-bottom: 50px; color: #fff; letter-spacing: -1px; }
+
+        /* Элементы UI */
+        .glass-card { 
+            background: var(--glass-bg); backdrop-filter: blur(var(--glass-blur)); -webkit-backdrop-filter: blur(var(--glass-blur));
+            border: 1px solid var(--glass-border); border-radius: 20px; padding: 30px; 
+            transition: transform 0.3s ease, border-color 0.3s ease; transform: translateZ(0);
+        }
+        .glass-card:hover { transform: translateY(-5px); border-color: rgba(255,255,255,0.2); }
+        
+        .btn-cta { display: inline-flex; align-items: center; gap: 10px; padding: 16px 40px; font-size: 1rem; font-weight: 600; color: #000; background: #fff; border-radius: 100px; cursor: pointer; border: none; text-decoration: none; transition: 0.2s; }
+        .btn-cta:hover { transform: scale(1.05); box-shadow: 0 0 30px rgba(255, 255, 255, 0.2); }
+        .btn-outline { background: rgba(255,255,255,0.05); color: #fff; border: 1px solid rgba(255,255,255,0.2); }
+        .btn-outline:hover { background: rgba(255,255,255,0.1); }
+
+        /* Сетки */
+        .features-grid { display: flex; justify-content: center; gap: 20px; flex-wrap: wrap; }
+        .feature-card { flex: 1 1 300px; max-width: 320px; text-align: center; }
+        .modules-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; }
+        .module-list li { margin-bottom: 10px; color: var(--text-muted); font-size: 0.95rem; display: flex; align-items: center; }
+        .module-list li::before { content: "•"; color: #fff; margin-right: 10px; }
+
+        /* Инструкция */
+        .steps { display: flex; flex-direction: column; gap: 15px; max-width: 800px; margin: 0 auto; }
+        .step-item { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); padding: 25px; border-radius: 16px; display: flex; gap: 20px; align-items: flex-start; }
+        .step-num { background: rgba(255,255,255,0.08); color: #fff; width: 40px; height: 40px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-family: 'Roboto Mono'; font-weight: 700; flex-shrink: 0; }
+        .step-title { color: #fff; font-weight: 600; font-size: 1.1rem; margin-bottom: 8px; display: block; }
+        .code-snippet { font-family: 'Roboto Mono', monospace; background: #111; padding: 4px 8px; border-radius: 4px; color: #ccc; font-size: 0.85em; cursor: pointer; border: 1px solid #333; transition: 0.2s; display: inline-block; }
+        .code-snippet:hover { background: #222; color: #fff; border-color: #666; }
+
+        /* FAQ */
+        .faq-wrapper { max-width: 800px; margin: 0 auto; display: flex; flex-direction: column; gap: 15px; }
+        .faq-item { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); border-radius: 16px; overflow: hidden; transition: 0.3s; }
+        .faq-item.active { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.15); }
+        .faq-question { padding: 20px 25px; cursor: pointer; display: flex; justify-content: space-between; font-weight: 600; color: #ddd; }
+        .faq-icon { transition: transform 0.3s ease; }
+        .faq-item.active .faq-icon { transform: rotate(45deg); color: #fff; }
+        .faq-answer { max-height: 0; overflow: hidden; transition: max-height 0.4s ease; padding: 0 25px; color: var(--text-muted); font-size: 0.95rem; line-height: 1.6; }
+        .faq-item.active .faq-answer { max-height: 300px; padding-bottom: 25px; }
+
+        /* Нижнее меню */
+        .nav-dock {
+            position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
+            background: var(--nav-glass); backdrop-filter: blur(10px);
+            padding: 8px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.1);
+            display: flex; gap: 5px; z-index: 9000; box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+        .nav-item { color: #666; padding: 8px 20px; border-radius: 14px; font-size: 0.85rem; font-weight: 500; transition: 0.3s; cursor: pointer; text-decoration: none; }
+        .nav-item:hover, .nav-item.active { background: #fff; color: #000; }
+
+        .reveal { opacity: 0; transform: translateY(30px); transition: 0.6s ease-out; will-change: opacity, transform; }
+        .reveal.active { opacity: 1; transform: translateY(0); }
+
+        /* --- ПОЛНОЭКРАННЫЙ AI ЧАТ --- */
+        #fullscreen-chat {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: var(--bg-dark); z-index: 9999;
+            display: flex; flex-direction: column;
+            opacity: 0; pointer-events: none; transform: translateY(20px);
+            transition: opacity 0.3s ease, transform 0.3s ease;
+        }
+
+        body.show-chat { overflow: hidden; }
+        body.show-chat #landing-page { opacity: 0; pointer-events: none; }
+        body.show-chat #fullscreen-chat { opacity: 1; pointer-events: all; transform: translateY(0); }
+        body.show-chat .nav-dock, body.show-chat #progress-bar { display: none !important; }
+
+        .chat-top-bar { padding: 15px 20px; background: #0a0a0a; border-bottom: 1px solid var(--glass-border); display: flex; justify-content: space-between; align-items: center; }
+        .back-btn { background: #1a1a1a; border: 1px solid #333; padding: 8px 16px; border-radius: 10px; color: #fff; cursor: pointer; font-size: 0.9rem; display: flex; align-items: center; gap: 8px; }
+        
+        .chat-area { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 20px; padding-bottom: 100px; }
+        .msg-row { display: flex; gap: 15px; max-width: 900px; margin: 0 auto; width: 100%; animation: msgFade 0.3s ease; }
+        .msg-row.user { justify-content: flex-end; }
+        .avatar { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+        .bot-av { background: #222; color: var(--accent-purple); border: 1px solid #333; }
+        .user-av { background: #fff; color: #000; }
+        
+        .bubble { background: #151515; padding: 15px 20px; border-radius: 16px; border-top-left-radius: 2px; border: 1px solid #222; color: #ddd; font-size: 0.95rem; line-height: 1.6; max-width: 85%; overflow-x: hidden; }
+        .user .bubble { background: #fff; color: #000; border: none; border-top-right-radius: 2px; border-top-left-radius: 16px; }
+
+        /* Подсветка кода */
+        .markdown-body p { margin-bottom: 10px; }
+        .markdown-body pre { background: #0a0a0a; border-radius: 8px; margin: 10px 0; border: 1px solid #333; overflow: hidden; }
+        .markdown-body code { font-family: 'Roboto Mono', monospace; font-size: 0.85rem; }
+        .code-header { display: flex; justify-content: space-between; background: #1a1a1a; padding: 6px 12px; font-size: 0.75rem; color: #888; border-bottom: 1px solid #333; }
+        .copy-btn { background: transparent; border: none; color: #aaa; cursor: pointer; display: flex; align-items: center; gap: 5px; }
+        .copy-btn:hover { color: #fff; }
+        .hljs { padding: 15px; }
+        .attachment-preview { max-width: 200px; border-radius: 8px; margin-bottom: 10px; border: 1px solid #444; }
+
+        /* Поле ввода */
+        .input-wrapper { position: fixed; bottom: 0; left: 0; width: 100%; background: #0a0a0a; border-top: 1px solid var(--glass-border); padding: 15px; }
+        .input-container { max-width: 900px; margin: 0 auto; display: flex; align-items: flex-end; gap: 10px; background: #151515; border: 1px solid #333; border-radius: 16px; padding: 10px; }
+        #messageInput { flex: 1; background: transparent; border: none; color: #fff; outline: none; padding: 10px; font-size: 1rem; max-height: 150px; overflow-y: auto; resize: none; font-family: 'Inter'; }
+        .action-btn { width: 40px; height: 40px; border-radius: 10px; border: none; background: transparent; color: #888; cursor: pointer; font-size: 1.2rem; display: flex; align-items: center; justify-content: center; }
+        .action-btn:hover { background: #333; color: #fff; }
+        #sendBtn { background: #fff; color: #000; }
+
+        @keyframes msgFade { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        @media (max-width: 768px) {
+            h1.shine-text { font-size: 2.8rem; }
+            .modules-grid { grid-template-columns: 1fr; }
+            .nav-dock { max-width: 95%; overflow-x: auto; justify-content: flex-start; }
+            .step-item { flex-direction: column; gap: 15px; }
+            .bubble { max-width: 95%; padding: 12px 15px; }
+            /* Выключаем размытие на мобилках для FPS */
+            .glass-card { backdrop-filter: none; background: #111; }
+        }
+    </style>
+</head>
+<body id="body">
+
+    <!-- === ГЛОБАЛЬНЫЕ ЭЛЕМЕНТЫ === -->
+    <div id="preloader"><div class="loader-text">HupGram</div><div class="loader-sub">System Init...</div></div>
+    <div id="progress-bar"></div>
+    <div class="cyber-grid"><div class="grid-lines"></div></div>
+    <div class="glow-spot glow-1"></div>
+    <div class="glow-spot glow-2"></div>
+
+    <div id="toast-notification">
+        <div class="toast-icon" style="color:#4ade80; background: rgba(74, 222, 128, 0.1); width:40px; height:40px; border-radius:50%; display:flex; align-items:center; justify-content:center;"><i class="fas fa-check-circle"></i></div>
+        <div style="display:flex; flex-direction:column;">
+            <span style="font-size:0.7rem; color:#666; font-weight:700;">SYSTEM ALERT</span>
+            <span style="font-size:0.85rem; color:#eee;">Новый пользователь подключил бота</span>
+        </div>
+    </div>
+
+    <!-- === ОСНОВНОЙ ЛЕНДИНГ === -->
+    <div id="landing-page">
+        
+        <section class="hero" id="home">
+            <div class="container">
+                <h1 class="shine-text reveal">HupGram <br> Premium</h1>
+                <p class="reveal">Модульный Userbot. Встроенный ИИ. Полная автоматизация.<br>Управляй своим Telegram на уровне кода.</p>
+                <div class="reveal" style="display: flex; gap: 15px; justify-content: center; flex-wrap: wrap;">
+                    <a href="https://t.me/HupGram_bot" class="btn-cta"><i class="fab fa-telegram-plane"></i> Подключить</a>
+                    <button class="btn-cta btn-outline" onclick="openChat()"><i class="fas fa-robot"></i> Открыть AI Чат</button>
+                </div>
+            </div>
+        </section>
+
+        <section id="features">
+            <div class="container">
+                <span class="tech-label reveal">Architecture</span>
+                <h2 class="reveal">Почему HupGram?</h2>
+                <div class="features-grid">
+                    <div class="glass-card feature-card reveal"><i class="fas fa-cubes feature-icon"></i><h3>Модульность</h3><p>Устанавливай только те плагины, которые нужны именно тебе.</p></div>
+                    <div class="glass-card feature-card reveal"><i class="fas fa-shield-alt feature-icon"></i><h3>Приватность</h3><p>Никакого сбора данных. Логи хранятся только в твоем Избранном.</p></div>
+                    <div class="glass-card feature-card reveal"><i class="fas fa-gift feature-icon"></i><h3>Ранний Доступ</h3><p>Пока мы в стадии Beta, весь премиум-функционал доступен бесплатно.</p></div>
+                </div>
+            </div>
+        </section>
+
+        <section id="modules">
+            <div class="container">
+                <span class="tech-label reveal">Repository</span>
+                <h2 class="reveal">Каталог Модулей</h2>
+                <div class="modules-grid">
+                    <div class="glass-card module-card reveal"><h3><i class="fas fa-lock" style="color:#fff;"></i> Безопасность</h3><ul class="module-list"><li>Антивирус (File Scan)</li><li>Защитник ЛС (Anti-Spam)</li><li>Ловец «Сгорающих» фото</li></ul></div>
+                    <div class="glass-card module-card reveal"><h3><i class="fas fa-eye" style="color:#fff;"></i> Шпионаж</h3><ul class="module-list"><li>IP-Логгер (Geo Link)</li><li>Парсер чатов & Юзеров</li><li>Скрытый Масс-тег</li></ul></div>
+                    <div class="glass-card module-card reveal"><h3><i class="fas fa-comment-dots" style="color:#fff;"></i> Общение</h3><ul class="module-list"><li>Voice2Text (ГС в Текст)</li><li>Шифратор (Secret Chat)</li><li>Авто-Переводчик (AI)</li></ul></div>
+                    <div class="glass-card module-card reveal"><h3><i class="fas fa-bolt" style="color:#fff;"></i> Активность</h3><ul class="module-list"><li>Спамер & Рейд-тулс</li><li>Клонатор профиля</li><li>Умный AFK режим</li></ul></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ПОДРОБНАЯ ИНСТРУКЦИЯ -->
+        <section id="install">
+            <div class="container">
+                <span class="tech-label reveal">Setup Guide</span>
+                <h2 class="reveal">Подробная Инструкция</h2>
+                <div class="steps reveal">
+                    
+                    <div class="step-item">
+                        <div class="step-num">01</div>
+                        <div>
+                            <span class="step-title">Авторизация на портале</span>
+                            <p style="color:var(--text-muted); font-size:0.95rem;">Перейдите на официальный портал для разработчиков <a href="https://my.telegram.org" target="_blank" style="color:#fff; text-decoration:underline;">my.telegram.org</a>. Введите номер телефона вашего аккаунта в международном формате (например, +7999...). Код подтверждения придет вам в приложении Telegram от служебного аккаунта.</p>
+                        </div>
+                    </div>
+                    
+                    <div class="step-item">
+                        <div class="step-num">02</div>
+                        <div>
+                            <span class="step-title">Выбор раздела</span>
+                            <p style="color:var(--text-muted); font-size:0.95rem;">После успешного входа нажмите на ссылку <strong>"API development tools"</strong> (Инструменты разработки API).</p>
+                        </div>
+                    </div>
+                    
+                    <div class="step-item">
+                        <div class="step-num">03</div>
+                        <div>
+                            <span class="step-title">Создание приложения</span>
+                            <p style="color:var(--text-muted); font-size:0.95rem;">Вам нужно заполнить только первые два поля. Названия могут быть абсолютно любыми (они ни на что не влияют). Платформу менять не нужно.</p>
+                            <div style="background:#111; padding:10px 15px; border-radius:8px; border:1px solid #333; margin-top:10px; font-family:'Roboto Mono'; font-size:0.85rem;">
+                                App title: <span style="color:#fff;">HupGramClient</span><br>
+                                Short name: <span style="color:#fff;">hgclient</span>
+                            </div>
+                            <p style="color:var(--text-muted); font-size:0.95rem; margin-top:10px;">Нажмите синюю кнопку <strong>Create application</strong> внизу страницы.</p>
+                        </div>
+                    </div>
+
+                    <div class="step-item">
+                        <div class="step-num">04</div>
+                        <div>
+                            <span class="step-title">Копирование ключей</span>
+                            <p style="color:var(--text-muted); font-size:0.95rem;">На открывшейся странице найдите ваши уникальные ключи. Нажмите на них ниже, чтобы скопировать:</p>
+                            <div style="margin-top:10px; display:flex; gap:10px;">
+                                <span class="code-snippet install-copy">App api_id</span> 
+                                <span class="code-snippet install-copy">App api_hash</span>
+                            </div>
+                            <p style="color:#f87171; font-size:0.85rem; margin-top:10px;"><i class="fas fa-exclamation-triangle"></i> Никому не передавайте эти ключи, кроме официального бота HupGram.</p>
+                        </div>
+                    </div>
+
+                    <div class="step-item">
+                        <div class="step-num">05</div>
+                        <div>
+                            <span class="step-title">Запуск бота</span>
+                            <p style="color:var(--text-muted); font-size:0.95rem;">Перейдите в Telegram, запустите нашего бота <a href="https://t.me/HupGram_bot" style="color:#fff; font-weight:bold;">@HupGram_bot</a> и следуйте его инструкциям, отправив скопированные данные.</p>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </section>
+
+        <!-- ПОДРОБНЫЙ FAQ -->
+        <section id="faq">
+            <div class="container">
+                <span class="tech-label reveal">Support</span>
+                <h2 class="reveal">Частые Вопросы</h2>
+                <div class="faq-wrapper reveal">
+                    <div class="faq-item">
+                        <div class="faq-question">Могут ли мой аккаунт забанить за юзербота?<i class="fas fa-plus faq-icon"></i></div>
+                        <div class="faq-answer">HupGram работает через официальный MTProto API Telegram, маскируясь под обычное приложение (Desktop/Android). Сам факт установки безопасен. Блокировки случаются <strong>только</strong> при агрессивном использовании модулей: массовый спам в ЛС незнакомцам, жесткие рейды чатов и накрутка. Если использовать бота для администрирования, нейросетей и удобства — бана не будет.</div>
+                    </div>
+                    <div class="faq-item">
+                        <div class="faq-question">Сколько стоит использование HupGram?<i class="fas fa-plus faq-icon"></i></div>
+                        <div class="faq-answer">Прямо сейчас HupGram находится в стадии открытого бета-тестирования, поэтому <strong>весь функционал предоставляется абсолютно бесплатно</strong>. В будущем мы планируем ввести премиум-подписку для тяжелых модулей (например, безлимитный ИИ), но для ранних пользователей базовый функционал останется бесплатным навсегда.</div>
+                    </div>
+                    <div class="faq-item">
+                        <div class="faq-question">Безопасно ли вводить api_id и api_hash?<i class="fas fa-plus faq-icon"></i></div>
+                        <div class="faq-answer">Да. Эти ключи используются ботом исключительно для создания сессии (чтобы бот мог писать от вашего имени). Данные шифруются на стороне сервера. Мы не имеем доступа к вашим паролям облачной защиты (2FA) или кодам из СМС напрямую. Однако, мы всегда рекомендуем устанавливать 2FA на ваш аккаунт.</div>
+                    </div>
+                    <div class="faq-item">
+                        <div class="faq-question">Мне нужен собственный сервер (VPS)?<i class="fas fa-plus faq-icon"></i></div>
+                        <div class="faq-answer">Нет! В отличие от старых юзерботов, требующих танцев с бубном, Termux или покупки серверов на Heroku, HupGram базируется на нашей облачной инфраструктуре. Вы управляете ботом прямо через интерфейс обычного Telegram бота. Это установка в 2 клика.</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- NAV DOCK -->
+        <nav class="nav-dock">
+            <a href="#home" class="nav-item active">Главная</a>
+            <a href="#install" class="nav-item">Инструкция</a>
+            <a href="#faq" class="nav-item">FAQ</a>
+            <div class="nav-item" onclick="openChat()" style="color: var(--accent-purple); font-weight: 600;"><i class="fas fa-brain"></i> AI Chat</div>
+        </nav>
+    </div>
+
+    <!-- === FULLSCREEN AI CHAT APP === -->
+    <div id="fullscreen-chat">
+        <div class="chat-top-bar">
+            <button class="back-btn" onclick="closeChat()"><i class="fas fa-arrow-left"></i> Назад</button>
+            <div style="display:flex; align-items:center; gap:10px;">
+                <i class="fas fa-brain" style="color: var(--accent-purple);"></i>
+                <span style="color:#fff; font-weight:600;">HupGram AI Engine</span>
+            </div>
+            <div style="width: 80px;"></div>
+        </div>
+
+        <div class="chat-area" id="chatArea">
+            <div class="msg-row">
+                <div class="avatar bot-av"><i class="fas fa-robot"></i></div>
+                <div class="bubble">
+                    Привет! Я обученный ИИ-ассистент проекта <b>HupGram</b>. Я знаю всё о нашем юзерботе, модулях и Telegram API. <br><br>Также я могу писать код на Python. Чем я могу помочь?
+                </div>
+            </div>
+        </div>
+
+        <div class="input-wrapper">
+            <div class="input-container">
+                <button class="action-btn" onclick="document.getElementById('fileInput').click()"><i class="fas fa-paperclip"></i></button>
+                <input type="file" id="fileInput" style="display:none;" accept="image/*">
+                <textarea id="messageInput" rows="1" placeholder="Задайте вопрос или попросите код..." oninput="autoResize(this)"></textarea>
+                <button class="action-btn" id="sendBtn" onclick="sendMessage()"><i class="fas fa-arrow-up"></i></button>
+            </div>
+        </div>
+    </div>
+
+    <!-- === SCRIPTS (OPTIMIZED) === -->
+    <script>
+        // --- 1. ОПТИМИЗИРОВАННЫЙ ЛЕНДИНГ (FPS BOOST) ---
+        let ticking = false;
+        
+        window.addEventListener('scroll', () => {
+            if(document.body.classList.contains('show-chat')) return;
+            
+            if (!ticking) {
+                window.requestAnimationFrame(() => {
+                    const winScroll = document.body.scrollTop || document.documentElement.scrollTop;
+                    const height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+                    document.getElementById("progress-bar").style.width = (winScroll / height * 100) + "%";
+
+                    document.querySelectorAll('.reveal').forEach(r => {
+                        if(r.getBoundingClientRect().top < window.innerHeight / 1.1) r.classList.add('active');
+                    });
+
+                    let current = "";
+                    document.querySelectorAll('section').forEach(sec => {
+                        if(winScroll >= sec.offsetTop - 300) current = sec.getAttribute('id');
+                    });
+                    document.querySelectorAll('.nav-dock a.nav-item').forEach(nav => {
+                        nav.classList.remove('active');
+                        if(nav.getAttribute('href') === '#' + current) nav.classList.add('active');
+                    });
+                    ticking = false;
+                });
+                ticking = true;
+            }
+        });
+
+        // Запуск
+        window.addEventListener('load', () => {
+            document.getElementById('preloader').classList.add('preloader-hide');
+            setTimeout(() => window.dispatchEvent(new Event('scroll')), 500);
+            setTimeout(() => document.getElementById('toast-notification').classList.add('show'), 3000);
+            setTimeout(() => document.getElementById('toast-notification').classList.remove('show'), 8000);
+        });
+
+        // Интерактивы
+        document.querySelectorAll('.faq-item').forEach(item => {
+            item.querySelector('.faq-question').addEventListener('click', () => {
+                document.querySelectorAll('.faq-item').forEach(i => { if (i !== item) i.classList.remove('active'); });
+                item.classList.toggle('active');
+            });
+        });
+
+        document.querySelectorAll('.install-copy').forEach(snip => {
+            snip.addEventListener('click', () => {
+                navigator.clipboard.writeText(snip.innerText);
+                const orig = snip.innerText;
+                snip.innerText = "Скопировано!"; snip.style.color = "#4ade80";
+                setTimeout(() => { snip.innerText = orig; snip.style.color = ""; }, 1500);
+            });
+        });
+
+        // Оптимизированный 3D Tilt (Только ПК)
+        if (window.matchMedia("(min-width: 768px)").matches) {
+            document.querySelectorAll('.glass-card').forEach(card => {
+                card.addEventListener('mousemove', (e) => {
+                    window.requestAnimationFrame(() => {
+                        const rect = card.getBoundingClientRect();
+                        const x = e.clientX - rect.left, y = e.clientY - rect.top;
+                        const cX = rect.width/2, cY = rect.height/2;
+                        card.style.transform = `perspective(1000px) rotateX(${((y-cY)/cY)*-3}deg) rotateY(${((x-cX)/cX)*3}deg) scale(1.02)`;
+                    });
+                });
+                card.addEventListener('mouseleave', () => card.style.transform = 'perspective(1000px) rotateX(0) rotateY(0) scale(1) translateZ(0)');
+            });
+        }
+
+        // --- 2. ЛОГИКА ИНТЕЛЛЕКТУАЛЬНОГО AI ЧАТА ---
+        function openChat() { document.body.classList.add('show-chat'); document.getElementById('messageInput').focus(); }
+        function closeChat() { document.body.classList.remove('show-chat'); }
+
+        const chatArea = document.getElementById('chatArea');
+        const messageInput = document.getElementById('messageInput');
+        const fileInput = document.getElementById('fileInput');
+
+        function autoResize(ta) { ta.style.height = 'auto'; ta.style.height = ta.scrollHeight + 'px'; }
+
+        fileInput.addEventListener('change', function() {
+            if (this.files && this.files[0]) {
+                const file = this.files[0];
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    appendUserMessage("Вот файл для анализа.", e.target.result);
+                    requestAI(`[Пользователь прикрепил файл: ${file.name}]. Сделай вид, что проанализировал его, и ответь что-нибудь релевантное.`);
+                }
+                reader.readAsDataURL(file);
+                this.value = '';
+            }
+        });
+
+        function sendMessage() {
+            const text = messageInput.value.trim();
+            if (!text) return;
+            appendUserMessage(text);
+            messageInput.value = ''; messageInput.style.height = 'auto';
+            requestAI(text);
+        }
+
+        messageInput.addEventListener('keypress', (e) => {
+            if(e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+        });
+
+        function appendUserMessage(text, imgUrl = null) {
+            const div = document.createElement('div'); div.className = 'msg-row user';
+            let content = imgUrl ? `<img src="${imgUrl}" class="attachment-preview"><div>${text}</div>` : text.replace(/\n/g, '<br>');
+            div.innerHTML = `<div class="bubble">${content}</div><div class="avatar user-av"><i class="fas fa-user"></i></div>`;
+            chatArea.appendChild(div); chatArea.scrollTop = chatArea.scrollHeight;
+        }
+
+        function appendBotMessage(markdownText) {
+            const div = document.createElement('div'); div.className = 'msg-row';
+            let htmlContent = marked.parse(markdownText);
+            div.innerHTML = `<div class="avatar bot-av"><i class="fas fa-robot"></i></div><div class="bubble markdown-body">${htmlContent}</div>`;
+            chatArea.appendChild(div);
+            
+            div.querySelectorAll('pre code').forEach((block) => {
+                hljs.highlightElement(block);
+                const pre = block.parentElement;
+                const header = document.createElement('div'); header.className = 'code-header';
+                let lang = "Code"; block.classList.forEach(c => { if(c.startsWith('language-')) lang = c.replace('language-', ''); });
+                header.innerHTML = `<span>${lang}</span><button class="copy-btn"><i class="far fa-copy"></i> Copy</button>`;
+                pre.insertBefore(header, block);
+                const btn = header.querySelector('.copy-btn');
+                btn.addEventListener('click', () => {
+                    navigator.clipboard.writeText(block.innerText);
+                    btn.innerHTML = `<i class="fas fa-check"></i> Copied!`;
+                    setTimeout(() => { btn.innerHTML = `<i class="far fa-copy"></i> Copy`; }, 2000);
+                });
+            });
+            chatArea.scrollTop = chatArea.scrollHeight;
+        }
+
+        // ОБУЧЕНИЕ НЕЙРОСЕТИ (СИСТЕМНЫЙ ПРОМПТ)
+        async function requestAI(prompt) {
+            const loading = document.createElement('div'); loading.className = 'msg-row'; loading.id = 'ai-loading';
+            loading.innerHTML = `<div class="avatar bot-av"><i class="fas fa-robot"></i></div><div class="bubble" style="color:#777;"><i>Генерация ответа...</i></div>`;
+            chatArea.appendChild(loading); chatArea.scrollTop = chatArea.scrollHeight;
+
+            try {
+                // СЮДА МЫ ЗАКЛАДЫВАЕМ ЗНАНИЯ О ПРОЕКТЕ
+                const systemPrompt = `
+Ты — официальный ИИ-ассистент проекта HupGram. Твоя задача помогать пользователям.
+Факты о HupGram:
+1. Это лучший и самый быстрый модульный Telegram юзербот (Userbot).
+2. Он работает в облаке или локально, настройка в 2 клика.
+3. Имеет модули: Анти-Спам, Шпион, Парсер, AI-интеграции (как ты), Рейд-инструменты.
+4. Он абсолютно бесплатный на этапе Beta-тестирования.
+Если пользователь просит написать код (например на Python, Telethon или Pyrogram для юзербота) — пиши профессионально в markdown блоках.
+Будь вежливым, крутым и технологичным. Отвечай на русском языке.
+`;
+                // Сборка запроса
+                const fullRequest = `System: ${systemPrompt}\nUser: ${prompt}`;
+                const url = `https://text.pollinations.ai/${encodeURIComponent(fullRequest)}`;
+                
+                const res = await fetch(url);
+                if(!res.ok) throw new Error();
+                const text = await res.text();
+                
+                document.getElementById('ai-loading').remove();
+                appendBotMessage(text);
+            } catch (e) {
+                document.getElementById('ai-loading').remove();
+                appendBotMessage("Ошибка соединения с нейронным ядром. Попробуйте чуть позже.");
+            }
+        }
+    </script>
+</body>
+</html>
