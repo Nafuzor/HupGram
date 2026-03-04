@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>HupGram Control Panel</title>
+    
+    <!-- Скрипт интеграции с Telegram (ОБЯЗАТЕЛЬНО) -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    
+    <!-- Шрифты и Иконки -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
+
+    <style>
+        :root {
+            --bg: #050505;
+            --surface: rgba(255, 255, 255, 0.05);
+            --border: rgba(255, 255, 255, 0.08);
+            --text-primary: #ffffff;
+            --text-secondary: #86868b;
+            --accent: #ffffff; /* Белый/серебряный акцент */
+            --danger: #ff453a;
+            --success: #32d74b;
+        }
+
+        * {
+            margin: 0; padding: 0; box-sizing: border-box;
+            font-family: 'Inter', sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text-primary);
+            overflow-x: hidden;
+            padding-bottom: 90px; /* Отступ для нижнего меню */
+        }
+
+        /* Шапка с приветствием */
+        .header {
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            border-bottom: 1px solid var(--border);
+            background: rgba(5, 5, 5, 0.8);
+            backdrop-filter: blur(10px);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .avatar {
+            width: 45px; height: 45px;
+            border-radius: 50%;
+            background: var(--surface);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 20px; border: 1px solid var(--border);
+            overflow: hidden;
+        }
+        .avatar img { width: 100%; height: 100%; object-fit: cover; }
+
+        .user-info h2 { font-size: 18px; font-weight: 600; }
+        .user-info p { font-size: 13px; color: var(--success); display: flex; align-items: center; gap: 4px; }
+        .user-info p::before { content: ''; display: block; width: 6px; height: 6px; background: var(--success); border-radius: 50%; box-shadow: 0 0 8px var(--success); }
+
+        /* Контент вкладок */
+        .tab-content { display: none; padding: 20px; animation: fadeIn 0.3s ease; }
+        .tab-content.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* Карточки (Стекло) */
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 15px;
+            backdrop-filter: blur(15px);
+        }
+
+        .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px; }
+        .stat-box {
+            background: var(--surface); border: 1px solid var(--border);
+            border-radius: 16px; padding: 15px; text-align: center;
+        }
+        .stat-box h3 { font-size: 24px; font-weight: 700; margin-bottom: 5px; }
+        .stat-box p { font-size: 12px; color: var(--text-secondary); }
+
+        .section-title { font-size: 14px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 1px; margin: 25px 0 10px 5px; }
+
+        /* Список модулей */
+        .module-item {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 15px 0; border-bottom: 1px solid var(--border);
+        }
+        .module-item:last-child { border-bottom: none; padding-bottom: 0; }
+        
+        .module-info { display: flex; align-items: center; gap: 15px; }
+        .module-icon {
+            width: 40px; height: 40px; border-radius: 10px;
+            background: rgba(255,255,255,0.08); display: flex;
+            align-items: center; justify-content: center; font-size: 20px; color: var(--accent);
+        }
+        .module-text h4 { font-size: 16px; font-weight: 600; margin-bottom: 3px; }
+        .module-text p { font-size: 12px; color: var(--text-secondary); }
+
+        /* Красивый Тумблер (iOS Style) */
+        .toggle-switch {
+            position: relative; width: 50px; height: 28px;
+            appearance: none; -webkit-appearance: none;
+            background: rgba(255,255,255,0.1); border-radius: 20px;
+            outline: none; transition: background 0.3s; cursor: pointer;
+            border: 1px solid var(--border);
+        }
+        .toggle-switch::after {
+            content: ''; position: absolute; top: 2px; left: 2px;
+            width: 22px; height: 22px; background: #fff; border-radius: 50%;
+            transition: 0.3s; box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+        .toggle-switch:checked { background: var(--accent); }
+        .toggle-switch:checked::after { transform: translateX(22px); background: #000; }
+
+        /* Кнопка уничтожения */
+        .btn-danger {
+            width: 100%; padding: 16px; border-radius: 14px;
+            background: rgba(255, 69, 58, 0.1); color: var(--danger);
+            border: 1px solid rgba(255, 69, 58, 0.3);
+            font-size: 16px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 8px;
+            margin-top: 20px; transition: 0.2s;
+        }
+        .btn-danger:active { background: rgba(255, 69, 58, 0.2); transform: scale(0.98); }
+
+        /* Нижнее меню навигации */
+        .bottom-nav {
+            position: fixed; bottom: 0; left: 0; width: 100%;
+            background: rgba(5, 5, 5, 0.85); backdrop-filter: blur(20px);
+            border-top: 1px solid var(--border);
+            display: flex; justify-content: space-around; padding: 15px 10px 25px 10px;
+        }
+        .nav-item {
+            color: var(--text-secondary); display: flex; flex-direction: column;
+            align-items: center; gap: 4px; font-size: 11px; font-weight: 500; cursor: pointer; transition: 0.3s;
+        }
+        .nav-item i { font-size: 22px; }
+        .nav-item.active { color: var(--accent); }
+        
+    </style>
+</head>
+<body>
+
+    <!-- Шапка -->
+    <div class="header">
+        <div class="avatar" id="user-avatar"><i class="ri-user-smile-line"></i></div>
+        <div class="user-info">
+            <h2 id="user-name">Загрузка...</h2>
+            <p>Ядро подключено</p>
+        </div>
+    </div>
+
+    <!-- ВКЛАДКА 1: ДАШБОРД -->
+    <div id="tab-dashboard" class="tab-content active">
+        <div class="stat-grid">
+            <div class="stat-box">
+                <h3>142</h3>
+                <p>Логи сохранено</p>
+            </div>
+            <div class="stat-box">
+                <h3>18</h3>
+                <p>Дней подписки</p>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3 style="margin-bottom: 10px; font-size: 16px;">Системная информация</h3>
+            <p style="font-size: 14px; color: var(--text-secondary); margin-bottom: 8px;"><i class="ri-server-line"></i> Узел: <b>Stockholm (S1)</b></p>
+            <p style="font-size: 14px; color: var(--text-secondary); margin-bottom: 8px;"><i class="ri-ping-pong-line"></i> Задержка: <b>42ms</b></p>
+            <p style="font-size: 14px; color: var(--text-secondary);"><i class="ri-cpu-line"></i> Ядро: <b>v2.1.0 HupCore</b></p>
+        </div>
+
+        <button class="btn-danger" onclick="triggerKillSwitch()">
+            <i class="ri-skull-2-line"></i> Уничтожить сессию
+        </button>
+    </div>
+
+    <!-- ВКЛАДКА 2: МАГАЗИН МОДУЛЕЙ -->
+    <div id="tab-store" class="tab-content">
+        <h2 style="margin-bottom: 15px;">Управление ядром</h2>
+        <p style="color: var(--text-secondary); font-size: 14px; margin-bottom: 20px;">Включайте и отключайте установленные плагины в реальном времени.</p>
+        
+        <div class="card" style="padding: 10px 20px;">
+            <!-- Модуль 1 -->
+            <div class="module-item">
+                <div class="module-info">
+                    <div class="module-icon"><i class="ri-eye-off-line"></i></div>
+                    <div class="module-text">
+                        <h4>Анти-Удаление</h4>
+                        <p>Логгер сообщений</p>
+                    </div>
+                </div>
+                <input type="checkbox" class="toggle-switch" id="mod_logger" checked onchange="notifyChanges()">
+            </div>
+            
+            <!-- Модуль 2 -->
+            <div class="module-item">
+                <div class="module-info">
+                    <div class="module-icon"><i class="ri-robot-line"></i></div>
+                    <div class="module-text">
+                        <h4>Автоответчик</h4>
+                        <p>Триггеры и правила</p>
+                    </div>
+                </div>
+                <input type="checkbox" class="toggle-switch" id="mod_reply" onchange="notifyChanges()">
+            </div>
+
+            <!-- Модуль 3 -->
+            <div class="module-item">
+                <div class="module-info">
+                    <div class="module-icon"><i class="ri-lock-password-line"></i></div>
+                    <div class="module-text">
+                        <h4>Шифратор</h4>
+                        <p>Секретные чаты</p>
+                    </div>
+                </div>
+                <input type="checkbox" class="toggle-switch" id="mod_crypt" checked onchange="notifyChanges()">
+            </div>
+        </div>
+    </div>
+
+    <!-- Нижняя панель навигации -->
+    <div class="bottom-nav">
+        <div class="nav-item active" onclick="switchTab('dashboard', this)">
+            <i class="ri-dashboard-line"></i>
+            <span>Дашборд</span>
+        </div>
+        <div class="nav-item" onclick="switchTab('store', this)">
+            <i class="ri-apps-2-line"></i>
+            <span>Модули</span>
+        </div>
+    </div>
+
+    <script>
+        // Инициализация Telegram WebApp
+        const tg = window.Telegram.WebApp;
+        tg.expand(); // Разворачиваем на весь экран
+        tg.setHeaderColor('#050505'); // Черная шапка
+        tg.setBackgroundColor('#050505');
+
+        // Получаем данные пользователя из Telegram
+        const user = tg.initDataUnsafe?.user;
+        if (user) {
+            document.getElementById('user-name').innerText = user.first_name;
+            // Если есть фото - ставим, если нет - оставляем иконку
+            if (user.photo_url) {
+                document.getElementById('user-avatar').innerHTML = `<img src="${user.photo_url}">`;
+            }
+        }
+
+        // Логика переключения вкладок
+        function switchTab(tabId, element) {
+            document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+            document.querySelectorAll('.nav-item').forEach(nav => nav.classList.remove('active'));
+            
+            document.getElementById('tab-' + tabId).classList.add('active');
+            element.classList.add('active');
+        }
+
+        // Логика сохранения настроек
+        let changesMade = false;
+
+        function notifyChanges() {
+            changesMade = true;
+            // Показываем главную кнопку Telegram внизу экрана
+            tg.MainButton.text = "СОХРАНИТЬ ИЗМЕНЕНИЯ";
+            tg.MainButton.color = "#ffffff";
+            tg.MainButton.textColor = "#000000";
+            tg.MainButton.show();
+        }
+
+        // Когда юзер нажимает "СОХРАНИТЬ ИЗМЕНЕНИЯ"
+        tg.MainButton.onClick(() => {
+            // Собираем данные со свитчей
+            const data = {
+                action: "save_modules",
+                modules: {
+                    logger: document.getElementById('mod_logger').checked,
+                    reply: document.getElementById('mod_reply').checked,
+                    crypt: document.getElementById('mod_crypt').checked
+                }
+            };
+            // Отправляем скрытый пакет данных боту
+            tg.sendData(JSON.stringify(data)); 
+            tg.close(); // Закрываем WebApp
+        });
+
+        // Кнопка уничтожения
+        function triggerKillSwitch() {
+            tg.showConfirm("ВНИМАНИЕ!\nВы уверены, что хотите уничтожить сессию? Бот удалит все ключи и выйдет из аккаунта.", function(passed) {
+                if (passed) {
+                    tg.sendData(JSON.stringify({ action: "kill_switch" }));
+                    tg.close();
+                }
+            });
+        }
+    </script>
+</body>
+</html>
